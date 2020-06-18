@@ -1,14 +1,15 @@
 provider "aws" {
-    region="us-east-1"  
+    region=var.vpc_region   
 }
 
 module "vpc_module" {
-  source ="/home/ashwin/snap/expt/modules"
-  vpc_cidr ="10.0.0.0/16"
-  subnet1_cidr="10.0.1.0/24"
-  s1az="us-east-1a"
-  subnet2_cidr="10.0.2.0/24"
-  s2az="us-east-1b"
-  subnet3_cidr="10.0.3.0/24"
-  s3az="us-east-1c"
+  source ="/home/ashwin/Desktop/CloudComputing6225/infrastructure/modules"
+ 
+  s1az="${var.s1az}"
+  s2az="${var.s2az}"
+  s3az="${var.s3az}"
+  s3_bucket_name="${var.s3_bucket_name}"
+  ssh_key_name="${var.ssh_key_name}"
+  username_rds_db="${var.username_rds_db}"
+  password_rds_db="${var.password_rds_db}"
 }
