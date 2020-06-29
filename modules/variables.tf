@@ -59,3 +59,28 @@ variable  "ssh_key_name" {
   
 }
 
+#Assignment 6 starts--------------------->>>>
+
+variable  "CodeDeploy_bucket" {
+    type = string
+    default= "codedeploy.ashwinagarkhed.xyz"
+  
+}
+
+variable  "AWS_ACCOUNT_ID" {
+    type = string
+    default= "381808703129"
+  
+}
+
+variable  "AWS_REGION" {
+    type = string
+    default= "us-east-1"
+  
+}
+
+variable  "CODE_DEPLOY_APPLICATION_NAME" {
+    type = string
+    default= "csye6225-webapp"
+  
+}
