@@ -231,10 +231,10 @@ resource "aws_instance" "ec2" {
 
   user_data = <<-EOF
           #!/bin/bash
-          echo "export SPRING_DATASOURCE_URL=${aws_db_instance.csye6225.address}">>/home/ubuntu/.bashrc
-          echo "export SPRING_DATASOURCE_USERNAME=${var.username_rds_db}">>/home/ubuntu/.bashrc
-          echo "export SPRING_DATASOURCE_PASSWORD=${var.password_rds_db}">>/home/ubuntu/.bashrc
-          echo "export SPRING_DATASOURCE_BUCKET=${var.s3_bucket_name}">>/home/ubuntu/.bashrc
+          echo "export SPRING_DATASOURCE_URL=${aws_db_instance.csye6225.address}">>/etc/environment
+          echo "export SPRING_DATASOURCE_USERNAME=${var.username_rds_db}">>/etc/environment
+          echo "export SPRING_DATASOURCE_PASSWORD=${var.password_rds_db}">>/etc/environment
+          echo "export SPRING_DATASOURCE_BUCKET=${var.s3_bucket_name}">>/etc/environment
       EOF
 
   key_name = "${var.ssh_key_name}"
@@ -605,4 +605,11 @@ resource "aws_codedeploy_deployment_group" "csye6225-webapp-deployment" {
   #   alarms  = ["my-alarm-name"]
   #   enabled = true
   # }
+}
+
+#Assignment 7 starts--------------------->>>>
+
+resource "aws_iam_role_policy_attachment" "AWSCloudWatchPolicyAttachment" {
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentAdminPolicy"
+  role       = "${aws_iam_role.ec2_s3_role.name}"
 }

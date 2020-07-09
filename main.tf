@@ -3,7 +3,7 @@ provider "aws" {
 }
 
 module "vpc_module" {
-  source ="/home/ashwin/Desktop/infrastructure/modules"
+  source ="/home/ashwin/Desktop/demoA6/infrastructure/modules"
  
   s1az="${var.s1az}"
   s2az="${var.s2az}"
