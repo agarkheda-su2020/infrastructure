@@ -828,8 +828,4 @@ resource "aws_codedeploy_deployment_group" "csye6225-webapp-deployment" {
     events  = ["DEPLOYMENT_FAILURE"]
   }
 
-  # alarm_configuration {
-  #   alarms  = ["my-alarm-name"]
-  #   enabled = true
-  # }
 }
