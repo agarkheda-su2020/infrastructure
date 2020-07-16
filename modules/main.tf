@@ -92,7 +92,7 @@ resource "aws_security_group" "application" {
     from_port   = 443
     to_port     = 443
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    security_groups = ["${aws_security_group.lb-security.id}"]
   }
 
   ingress {
@@ -108,7 +108,7 @@ resource "aws_security_group" "application" {
     from_port   = 80
     to_port     = 80
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    security_groups = ["${aws_security_group.lb-security.id}"]
   }
 
   ingress {
@@ -116,7 +116,15 @@ resource "aws_security_group" "application" {
     from_port   = 8080
     to_port     = 8080
     protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
+    security_groups = ["${aws_security_group.lb-security.id}"]
+  }
+
+  ingress {
+    description = "TCP from HTTPS"
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    security_groups = ["${aws_security_group.lb-security.id}"]
   }
 
   egress {
@@ -221,27 +229,27 @@ data "aws_ami" "ubuntu" {
   owners = ["418350900893"] # Canonical
 }
 
-resource "aws_instance" "ec2" {
-  ami                     = "${data.aws_ami.ubuntu.id}"
-  instance_type           = "t2.micro"
-  subnet_id               = "${aws_subnet.subnet3.id}"
-  depends_on              = [aws_db_instance.csye6225]
-  vpc_security_group_ids  = ["${aws_security_group.application.id}"]
-  iam_instance_profile    = "${aws_iam_instance_profile.ec2_profile.name}"
+# resource "aws_instance" "ec2" {
+#   ami                     = "${data.aws_ami.ubuntu.id}"
+#   instance_type           = "t2.micro"
+#   subnet_id               = "${aws_subnet.subnet3.id}"
+#   depends_on              = [aws_db_instance.csye6225]
+#   vpc_security_group_ids  = ["${aws_security_group.application.id}"]
+#   iam_instance_profile    = "${aws_iam_instance_profile.ec2_profile.name}"
 
-  user_data = <<-EOF
-          #!/bin/bash
-          echo "export SPRING_DATASOURCE_URL=${aws_db_instance.csye6225.address}">>/etc/environment
-          echo "export SPRING_DATASOURCE_USERNAME=${var.username_rds_db}">>/etc/environment
-          echo "export SPRING_DATASOURCE_PASSWORD=${var.password_rds_db}">>/etc/environment
-          echo "export SPRING_DATASOURCE_BUCKET=${var.s3_bucket_name}">>/etc/environment
-      EOF
+#   user_data = <<-EOF
+#           #!/bin/bash
+#           echo "export SPRING_DATASOURCE_URL=${aws_db_instance.csye6225.address}">>/etc/environment
+#           echo "export SPRING_DATASOURCE_USERNAME=${var.username_rds_db}">>/etc/environment
+#           echo "export SPRING_DATASOURCE_PASSWORD=${var.password_rds_db}">>/etc/environment
+#           echo "export SPRING_DATASOURCE_BUCKET=${var.s3_bucket_name}">>/etc/environment
+#       EOF
 
-  key_name = "${var.ssh_key_name}"
-  tags = {
-    Name = "ec2 instance"
-  }
-}
+#   key_name = "${var.ssh_key_name}"
+#   tags = {
+#     Name = "ec2 instance"
+#   }
+# }
 
 
 
@@ -576,11 +584,230 @@ resource "aws_codedeploy_app" "csye6225-webapp" {
 #   name = "example-topic"
 # }
 
+
+
+#Assignment 7 starts--------------------->>>>
+
+resource "aws_iam_role_policy_attachment" "AWSCloudWatchPolicyAttachment" {
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentAdminPolicy"
+  role       = "${aws_iam_role.ec2_s3_role.name}"
+}
+
+
+#Assignment 8 starts--------------------->>>>
+
+
+resource "aws_launch_configuration" "asg_launch_config" {
+  
+  image_id      = "${data.aws_ami.ubuntu.id}"
+  instance_type = "t2.micro"
+  key_name = "CSYE_6225_prod"
+  associate_public_ip_address = true
+  security_groups  =  ["${aws_security_group.application.id}"]
+  iam_instance_profile    = "${aws_iam_instance_profile.ec2_profile.name}"
+  user_data = <<-EOF
+          #!/bin/bash
+          echo "export SPRING_DATASOURCE_URL=${aws_db_instance.csye6225.address}">>/etc/environment
+          echo "export SPRING_DATASOURCE_USERNAME=${var.username_rds_db}">>/etc/environment
+          echo "export SPRING_DATASOURCE_PASSWORD=${var.password_rds_db}">>/etc/environment
+          echo "export SPRING_DATASOURCE_BUCKET=${var.s3_bucket_name}">>/etc/environment
+      EOF
+  
+  lifecycle {
+    create_before_destroy = true
+  }
+
+}
+
+#---------------->> AutoScaling
+
+resource "aws_autoscaling_policy" "web_policy_down" {
+  name = "web_policy_down"
+  scaling_adjustment = -1
+  adjustment_type = "ChangeInCapacity"
+  cooldown = 60
+  autoscaling_group_name = "${aws_autoscaling_group.terraform-asg.name}"
+}
+
+resource "aws_cloudwatch_metric_alarm" "web_cpu_alarm_down" {
+  alarm_name = "web_cpu_alarm_down"
+  comparison_operator = "LessThanOrEqualToThreshold"
+  evaluation_periods = "2"
+  metric_name = "CPUUtilization"
+  namespace = "AWS/EC2"
+  period = "120"
+  statistic = "Average"
+  threshold = "3"
+
+  dimensions = {
+    AutoScalingGroupName = "${aws_autoscaling_group.terraform-asg.name}"
+  }
+
+  alarm_description = "This metric monitor EC2 instance CPU utilization"
+  alarm_actions = ["${aws_autoscaling_policy.web_policy_down.arn}"]
+}
+
+resource "aws_autoscaling_policy" "web_policy_up" {
+  name = "web_policy_up"
+  scaling_adjustment = 1
+  adjustment_type = "ChangeInCapacity"
+  cooldown = 60
+  autoscaling_group_name = "${aws_autoscaling_group.terraform-asg.name}"
+}
+
+resource "aws_cloudwatch_metric_alarm" "web_cpu_alarm_up" {
+  alarm_name = "web_cpu_alarm_up"
+  comparison_operator = "GreaterThanOrEqualToThreshold"
+  evaluation_periods = "2"
+  metric_name = "CPUUtilization"
+  namespace = "AWS/EC2"
+  period = "120"
+  statistic = "Average"
+  threshold = "5"
+
+  dimensions= {
+    AutoScalingGroupName = "${aws_autoscaling_group.terraform-asg.name}"
+  }
+
+  alarm_description = "This metric monitor EC2 instance CPU utilization"
+  alarm_actions = ["${aws_autoscaling_policy.web_policy_up.arn}"]
+}
+
+resource "aws_autoscaling_group" "terraform-asg" {
+  name                 = "terraform-asg"
+  launch_configuration = "${aws_launch_configuration.asg_launch_config.name}"
+  min_size             = 2
+  max_size             = 5
+  default_cooldown     = 60
+
+  health_check_type    = "EC2"
+  health_check_grace_period = 300
+  target_group_arns         = ["${aws_lb_target_group.targetgroup.arn}"]
+  vpc_zone_identifier       = ["${aws_subnet.subnet1.id}", "${aws_subnet.subnet2.id}", "${aws_subnet.subnet3.id}"]
+
+  tag {
+      key                 = "Name"
+      value               = "ec2 instance"
+      propagate_at_launch = true
+    }
+
+  lifecycle {
+    create_before_destroy = true
+  }
+}
+
+# Load Balancer ----------------->>
+
+
+resource "aws_lb_target_group" "targetgroup" {
+  name     = "targetgroup"
+  port     = "8080"
+  protocol = "HTTP"
+  vpc_id   = "${aws_vpc.Ass4_vpc.id}"
+  
+  stickiness {
+    type = "lb_cookie"
+  }
+}
+
+
+resource "aws_lb" "csye6225_lb" {
+  name               = "csye6225-lb"
+  internal           = false
+  load_balancer_type = "application"
+  ip_address_type    = "ipv4"
+  security_groups    = ["${aws_security_group.lb-security.id}"]
+  subnets            = ["${aws_subnet.subnet1.id}", "${aws_subnet.subnet2.id}", "${aws_subnet.subnet3.id}"]
+  
+
+
+  tags = {
+    Environment = "production"
+  }
+}
+
+
+
+resource "aws_lb_listener" "httplb" {
+  load_balancer_arn = "${aws_lb.csye6225_lb.arn}"
+  port              = "80"
+  protocol          = "HTTP"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = "${aws_lb_target_group.targetgroup.arn}"
+  }
+}
+
+
+resource "aws_security_group" "lb-security" {
+  name        = "lb-security"
+  description = "This is the security group for EC2 instances that will host web application."
+  vpc_id      = "${aws_vpc.Ass4_vpc.id}"
+
+  ingress {
+    description = "TCP from HTTPS"
+    from_port   = 443
+    to_port     = 443
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+
+  ingress {
+    description = "TCP from HTTP"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "TCP for application"
+    from_port   = 8080
+    to_port     = 8080
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  ingress {
+    description = "TCP from HTTPS"
+    from_port   = 3306
+    to_port     = 3306
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  egress {
+    from_port   = 0
+    to_port     = 0
+    protocol    = "-1"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
+
+  tags = {
+    Name = "LB Security group"
+  }
+}
+# ------------------------>> Route 53
+
+resource "aws_route53_record" "route53_lb" {
+  zone_id = "Z0931622210RKLIL86YWP"
+  name    = "prod.ashwinagarkhed.xyz"
+  type    = "A"
+
+  alias {
+    name                   = "${aws_lb.csye6225_lb.dns_name}"
+    zone_id                = "${aws_lb.csye6225_lb.zone_id}"
+    evaluate_target_health = false
+  }
+}
 resource "aws_codedeploy_deployment_group" "csye6225-webapp-deployment" {
   app_name              = "${aws_codedeploy_app.csye6225-webapp.name}"
   deployment_group_name = "csye6225-webapp-deployment"
   service_role_arn      = "${aws_iam_role.CodeDeployServiceRole.arn}"
   deployment_config_name = "CodeDeployDefault.AllAtOnce"
+  autoscaling_groups =  ["${aws_autoscaling_group.terraform-asg.name}"]
   ec2_tag_set {
     ec2_tag_filter {
       key   = "Name"
@@ -605,11 +832,4 @@ resource "aws_codedeploy_deployment_group" "csye6225-webapp-deployment" {
   #   alarms  = ["my-alarm-name"]
   #   enabled = true
   # }
-}
-
-#Assignment 7 starts--------------------->>>>
-
-resource "aws_iam_role_policy_attachment" "AWSCloudWatchPolicyAttachment" {
-  policy_arn = "arn:aws:iam::aws:policy/CloudWatchAgentAdminPolicy"
-  role       = "${aws_iam_role.ec2_s3_role.name}"
 }
