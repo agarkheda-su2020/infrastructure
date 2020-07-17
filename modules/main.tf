@@ -95,13 +95,13 @@ resource "aws_security_group" "application" {
     security_groups = ["${aws_security_group.lb-security.id}"]
   }
 
-  ingress {
-    description = "TCP from SSH"
-    from_port   = 22
-    to_port     = 22
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  # ingress {
+  #   description = "TCP from SSH"
+  #   from_port   = 22
+  #   to_port     = 22
+  #   protocol    = "tcp"
+  #   cidr_blocks = ["0.0.0.0/0"]
+  # }
 
   ingress {
     description = "TCP from HTTP"
