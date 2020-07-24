@@ -257,11 +257,16 @@ resource "aws_dynamodb_table" "csye6225" {
   name           = "csye6225"
   read_capacity  = 10
   write_capacity = 10
-  hash_key       = "id"
+  hash_key       = "username"
 
   attribute {
-    name = "id"
+    name = "username"
     type = "S"
+  }
+
+  ttl {
+    attribute_name = "username"
+    enabled        = true
   }
 }
 
@@ -521,6 +526,73 @@ resource "aws_iam_policy" "Circleci-ec2-ami" {
 }
 EOF
 }
+
+resource "aws_iam_policy" "CircleCI-lambda" {
+  name        = "CircleCI-lambda"
+  description = "CircleCI update lambda"
+
+  policy = <<EOF
+{
+    "Version": "2012-10-17",
+    "Statement": [
+        {
+            "Sid": "ActionsWhichSupportResourceLevelPermissions",
+            "Effect": "Allow",
+            "Action": [
+                "lambda:AddPermission",
+                "lambda:RemovePermission",
+                "lambda:CreateAlias",
+                "lambda:UpdateAlias",
+                "lambda:DeleteAlias",
+                "lambda:UpdateFunctionCode",
+                "lambda:UpdateFunctionConfiguration",
+                "lambda:PutFunctionConcurrency",
+                "lambda:DeleteFunctionConcurrency",
+                "lambda:PublishVersion"
+            ],
+            "Resource": "arn:aws:lambda:us-east-1:381808703129:function:lambda"
+        },
+        {
+            "Sid": "ActionsWhichSupportCondition",
+            "Effect": "Allow",
+            "Action": [
+                "lambda:CreateEventSourceMapping",
+                "lambda:UpdateEventSourceMapping",
+                "lambda:DeleteEventSourceMapping"
+            ],
+            "Resource": "*",
+            "Condition": {
+                "StringEquals": {
+                    "lambda:FunctionArn": "arn:aws:lambda:us-east-1:381808703129:function:lambda"
+                }
+            }
+        },
+        {
+            "Sid": "ActionsWhichDoNotSupportResourceLevelPermissions",
+            "Effect": "Allow",
+            "Action": [
+                "lambda:UntagResource",
+                "lambda:TagResource"
+            ],
+            "Resource": "*"
+        }
+    ]
+}
+EOF
+}
+
+resource "aws_iam_role_policy_attachment" "ec2_SNS" {
+	role = "${aws_iam_role.ec2_s3_role.name}"
+	policy_arn = "arn:aws:iam::aws:policy/AmazonSNSFullAccess"
+}
+
+#Circleci-ec2-ami Policy for CircleCI 
+
+resource "aws_iam_user_policy_attachment" "Circleci-lambda-attach" {
+  user       = "circleci"
+  policy_arn = "${aws_iam_policy.CircleCI-lambda.arn}"
+}
+
 
 #Circleci-ec2-ami Policy for CircleCI 
 
@@ -828,4 +900,76 @@ resource "aws_codedeploy_deployment_group" "csye6225-webapp-deployment" {
     events  = ["DEPLOYMENT_FAILURE"]
   }
 
+}
+
+#Assignment 9 starts here ----------------->>
+
+resource "aws_sns_topic" "password_reset" {
+  name = "password_reset"
+}
+
+resource "aws_sns_topic_subscription" "topic_lambda" {
+  topic_arn = "${aws_sns_topic.password_reset.arn}"
+  protocol  = "lambda"
+  endpoint  = "${aws_lambda_function.lambda.arn}"
+}
+
+resource "aws_iam_role" "lambda_iam_role" {
+  name = "lambda_iam_role"
+
+  assume_role_policy = <<EOF
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Action": "sts:AssumeRole",
+      "Principal": {
+        "Service": "lambda.amazonaws.com"
+      },
+      "Effect": "Allow",
+      "Sid": ""
+    }
+  ]
+}
+EOF
+}
+
+resource "aws_iam_role_policy_attachment" "cloudwatch_lambda_attach" {
+  role       = "${aws_iam_role.lambda_iam_role.name}"
+  policy_arn = "arn:aws:iam::aws:policy/CloudWatchFullAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "dynamodb_lambda_attach" {
+  role       = "${aws_iam_role.lambda_iam_role.name}"
+  policy_arn = "arn:aws:iam::aws:policy/AmazonDynamoDBFullAccess"
+}
+
+resource "aws_iam_role_policy_attachment" "ses_lambda_attach" {
+  role       = "${aws_iam_role.lambda_iam_role.name}"
+  policy_arn = "arn:aws:iam::aws:policy/AmazonSESFullAccess"
+}
+
+resource "aws_lambda_function" "lambda" {
+  function_name    = "lambda"
+  role             = "${aws_iam_role.lambda_iam_role.arn}"
+  handler          = "ResetPasswordEmail::handleRequest"
+  runtime          = "java8"
+  s3_bucket        = "codedeploy.ashwinagarkhed.xyz"
+  s3_key           = "LamdaApp-1.0-SNAPSHOT.jar"
+  memory_size      = "200"
+  environment {
+    variables = {
+      DynamoDBEndPoint = "${aws_dynamodb_table.csye6225.arn}"
+      TTL_MINS = "15"
+      domain = "prod.ashwinagarkhed.xyz"   
+    }
+  }
+}
+
+resource "aws_lambda_permission" "with_sns" {
+    statement_id = "AllowExecutionFromSNS"
+    action = "lambda:InvokeFunction"
+    function_name = "${aws_lambda_function.lambda.function_name}"
+    principal = "sns.amazonaws.com"
+    source_arn = "${aws_sns_topic.password_reset.arn}"
 }
