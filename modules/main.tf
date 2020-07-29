@@ -954,6 +954,7 @@ resource "aws_lambda_function" "lambda" {
   role             = "${aws_iam_role.lambda_iam_role.arn}"
   handler          = "ResetPasswordEmail::handleRequest"
   runtime          = "java8"
+  timeout          = "300"
   s3_bucket        = "codedeploy.ashwinagarkhed.xyz"
   s3_key           = "LamdaApp-1.0-SNAPSHOT.jar"
   memory_size      = "200"
