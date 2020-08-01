@@ -222,6 +222,7 @@ resource "aws_db_instance" "csye6225" {
   db_subnet_group_name = "${aws_db_subnet_group.db_subnet_group.name}"
   skip_final_snapshot =  "true"
   vpc_security_group_ids = ["${aws_security_group.database.id}"]
+  storage_encrypted = "true"
 }
 
 data "aws_ami" "ubuntu" {
@@ -974,3 +975,28 @@ resource "aws_lambda_permission" "with_sns" {
     principal = "sns.amazonaws.com"
     source_arn = "${aws_sns_topic.password_reset.arn}"
 }
+
+resource "aws_db_parameter_group" "mysql8paramgroup" {
+  name   = "mysql8paramgroup"
+  family = "mysql8.0"
+
+  parameter {
+    name  = "performance_schema"
+    value = "1"
+    apply_method = "pending-reboot"
+  }
+}
+
+resource "aws_lb_listener" "httpslb" {
+  load_balancer_arn = "${aws_lb.csye6225_lb.arn}"
+  port              = "443"
+  protocol          = "HTTPS"
+  ssl_policy        = "ELBSecurityPolicy-2016-08"
+  certificate_arn   = "arn:aws:acm:us-east-1:569196275084:certificate/0f6112f9-d134-4b06-b1e4-24ada9c79cdc"
+
+  default_action {
+    type             = "forward"
+    target_group_arn = "${aws_lb_target_group.csye6225_target_group.arn}"
+  }
+}
+
