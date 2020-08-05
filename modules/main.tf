@@ -95,21 +95,21 @@ resource "aws_security_group" "application" {
     security_groups = ["${aws_security_group.lb-security.id}"]
   }
 
-  # ingress {
-  #   description = "TCP from SSH"
-  #   from_port   = 22
-  #   to_port     = 22
-  #   protocol    = "tcp"
-  #   cidr_blocks = ["0.0.0.0/0"]
-  # }
-
   ingress {
-    description = "TCP from HTTP"
-    from_port   = 80
-    to_port     = 80
+    description = "TCP from SSH"
+    from_port   = 22
+    to_port     = 22
     protocol    = "tcp"
-    security_groups = ["${aws_security_group.lb-security.id}"]
+    cidr_blocks = ["0.0.0.0/0"]
   }
+
+  # ingress {
+  #   description = "TCP from HTTP"
+  #   from_port   = 80
+  #   to_port     = 80
+  #   protocol    = "tcp"
+  #   security_groups = ["${aws_security_group.lb-security.id}"]
+  # }
 
   ingress {
     description = "TCP for application"
@@ -216,7 +216,7 @@ resource "aws_db_instance" "csye6225" {
   multi_az             = "false"
   instance_class       = "db.t3.micro"
   name                 = "csye6225"
-  parameter_group_name = "default.mysql5.7"
+  parameter_group_name = "defaultmysql"
   username             = var.username_rds_db
   password             = var.password_rds_db
   db_subnet_group_name = "${aws_db_subnet_group.db_subnet_group.name}"
@@ -827,13 +827,13 @@ resource "aws_security_group" "lb-security" {
   }
 
 
-  ingress {
-    description = "TCP from HTTP"
-    from_port   = 80
-    to_port     = 80
-    protocol    = "tcp"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
+  # ingress {
+  #   description = "TCP from HTTP"
+  #   from_port   = 80
+  #   to_port     = 80
+  #   protocol    = "tcp"
+  #   cidr_blocks = ["0.0.0.0/0"]
+  # }
 
   ingress {
     description = "TCP for application"
@@ -976,9 +976,9 @@ resource "aws_lambda_permission" "with_sns" {
     source_arn = "${aws_sns_topic.password_reset.arn}"
 }
 
-resource "aws_db_parameter_group" "mysql8paramgroup" {
-  name   = "mysql8paramgroup"
-  family = "mysql8.0"
+resource "aws_db_parameter_group" "defaultmysql" {
+  name   = "defaultmysql"
+  family = "mysql5.7"
 
   parameter {
     name  = "performance_schema"
@@ -992,11 +992,11 @@ resource "aws_lb_listener" "httpslb" {
   port              = "443"
   protocol          = "HTTPS"
   ssl_policy        = "ELBSecurityPolicy-2016-08"
-  certificate_arn   = "arn:aws:acm:us-east-1:569196275084:certificate/0f6112f9-d134-4b06-b1e4-24ada9c79cdc"
+  certificate_arn   = "arn:aws:acm:us-east-1:381808703129:certificate/d51c1446-0d3e-4470-b57e-2b1debb7f8aa"
 
   default_action {
     type             = "forward"
-    target_group_arn = "${aws_lb_target_group.csye6225_target_group.arn}"
+    target_group_arn = "${aws_lb_target_group.targetgroup.arn}"
   }
 }
 
