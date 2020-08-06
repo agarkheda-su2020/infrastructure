@@ -103,13 +103,13 @@ resource "aws_security_group" "application" {
     cidr_blocks = ["0.0.0.0/0"]
   }
 
-  # ingress {
-  #   description = "TCP from HTTP"
-  #   from_port   = 80
-  #   to_port     = 80
-  #   protocol    = "tcp"
-  #   security_groups = ["${aws_security_group.lb-security.id}"]
-  # }
+  ingress {
+    description = "TCP from HTTP"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    security_groups = ["${aws_security_group.lb-security.id}"]
+  }
 
   ingress {
     description = "TCP for application"
@@ -710,7 +710,7 @@ resource "aws_cloudwatch_metric_alarm" "web_cpu_alarm_down" {
   namespace = "AWS/EC2"
   period = "120"
   statistic = "Average"
-  threshold = "3"
+  threshold = "10"
 
   dimensions = {
     AutoScalingGroupName = "${aws_autoscaling_group.terraform-asg.name}"
@@ -736,7 +736,7 @@ resource "aws_cloudwatch_metric_alarm" "web_cpu_alarm_up" {
   namespace = "AWS/EC2"
   period = "120"
   statistic = "Average"
-  threshold = "5"
+  threshold = "60"
 
   dimensions= {
     AutoScalingGroupName = "${aws_autoscaling_group.terraform-asg.name}"
@@ -749,8 +749,8 @@ resource "aws_cloudwatch_metric_alarm" "web_cpu_alarm_up" {
 resource "aws_autoscaling_group" "terraform-asg" {
   name                 = "terraform-asg"
   launch_configuration = "${aws_launch_configuration.asg_launch_config.name}"
-  min_size             = 2
-  max_size             = 5
+  min_size             = 5
+  max_size             = 10
   default_cooldown     = 60
 
   health_check_type    = "EC2"
@@ -827,13 +827,13 @@ resource "aws_security_group" "lb-security" {
   }
 
 
-  # ingress {
-  #   description = "TCP from HTTP"
-  #   from_port   = 80
-  #   to_port     = 80
-  #   protocol    = "tcp"
-  #   cidr_blocks = ["0.0.0.0/0"]
-  # }
+  ingress {
+    description = "TCP from HTTP"
+    from_port   = 80
+    to_port     = 80
+    protocol    = "tcp"
+    cidr_blocks = ["0.0.0.0/0"]
+  }
 
   ingress {
     description = "TCP for application"
