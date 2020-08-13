@@ -10,6 +10,7 @@ variable  "subnet1_cidr" {
 }
 variable  "s1az" {
     type = string
+    default="us-east-1a"
    
 }
 variable  "subnet2_cidr" {
@@ -18,6 +19,7 @@ variable  "subnet2_cidr" {
 }
 variable  "s2az" {
     type = string
+    default="us-east-1b"
     
 }
 variable  "subnet3_cidr" {
@@ -26,6 +28,7 @@ variable  "subnet3_cidr" {
 }
 variable  "s3az" {
     type = string
+    default="us-east-1c"
   
 }
 //Assignment -5
